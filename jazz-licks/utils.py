@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 import warnings
 from pathlib import Path
@@ -34,9 +35,27 @@ def load_tables(base_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     return tracks, examples
 
 
+def _resolve_ffmpeg_exe() -> str:
+    system = shutil.which("ffmpeg")
+    if system:
+        return system
+    try:
+        import imageio_ffmpeg  # type: ignore[import-untyped]
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception as e:
+        raise RuntimeError(
+            "No ffmpeg executable found. On JupyterHub, run: pip install imageio-ffmpeg "
+            "(see jazz-licks/requirements.txt), restart the kernel, and try again. "
+            "Hub admins can instead install conda-forge package ffmpeg. "
+            "Some platforms (e.g. certain ARM images) may need a system-provided ffmpeg."
+        ) from e
+
+
 def decode_audio_ffmpeg(path: Path, sr: int = 22050) -> tuple[np.ndarray, int]:
+    ffmpeg_exe = _resolve_ffmpeg_exe()
     cmd = [
-        "ffmpeg",
+        ffmpeg_exe,
         "-v",
         "error",
         "-i",
